@@ -1,0 +1,309 @@
+# import libraries
+
+from bs4 import BeautifulSoup # For HTML parsing
+import urllib # Website connections
+import re # Regular expressions
+from time import sleep # To prevent overwhelming the server between connections
+from collections import Counter # Keep track of our term counts
+from nltk.corpus import stopwords # Filter out stopwords, such as 'the', 'or', 'and'
+#import pandas as pd # For converting results to a dataframe and bar chart plots
+%matplotlib inline
+import matplotlib.pyplot as plt
+import numpy as np
+
+page_url = 'https://www.kijiji.ca/b-apartments-condos/city-of-toronto/c37l1700273?ad=offering'
+
+#Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36
+page_request = urllib.request.Request(page_url, headers={'User-Agent': 'Mozilla/5.0'})
+page_source = urllib.request.urlopen(page_request).read()
+
+soup = BeautifulSoup(page_source, 'html.parser') 
+
+"""
+PageElement.extract() removes a tag or string from the tree. 
+It returns the tag or string that was extracted:
+"""
+
+for script in soup(["script", "style"]):
+    #print(type(script))
+    script.extract()
+ 
+ text = soup.get_text()
+ 
+ # identifies comma separated amounts
+def aton(x):
+    list = x.split(',')
+    #print(list)
+    i=0
+    for element in list:
+        #print('>',element,'<')
+        i+=1
+    #print('num elements:',i)
+    number = 0
+    if i == 1:
+        return(int(list[i-1]))
+    elif i == 2:
+        return(int(list[i-2]+list[i-1]))
+    return (number)
+        
+    
+            
+xyz= text.splitlines()
+
+num_rows = 0
+for line in xyz:
+    num_rows += 1
+
+i = 0
+bathrooms_flag = -1
+petfriendly_flag = -1
+furnished_flag = -1
+forrentby_flag = -1
+while i < num_rows:
+    line = xyz[i]
+    if line.strip().startswith ('Apartments & Condos for Rent'):
+        qty_aptsandcondosforrent = aton(line.split()[5].strip(' )('))
+    if line.strip()=='1 Bedroom':
+        i+=1
+        line = xyz[i]
+        qty_1bedroom = aton(line.strip(' )('))
+    if line.strip()=='2 Bedroom':
+        i+=1
+        line = xyz[i]
+        qty_2bedroom = aton(line.strip(' )('))
+    if line.strip()=='1 Bedroom + Den':
+        i+=1
+        line = xyz[i]
+        qty_1dbedroom = aton(line.strip(' )('))
+    if line.strip()=='Bachelor & Studio':
+        i+=1
+        line = xyz[i]
+        qty_bachelor = aton(line.strip(' )('))
+    if line.strip()=='3 Bedroom':
+        i+=1
+        line = xyz[i]
+        qty_3bedroom = aton(line.strip(' )('))
+    if line.strip()=='4+ Bedroom':
+        i+=1
+        line = xyz[i]
+        qty_4pbedroom = aton(line.strip(' )('))
+    if bathrooms_flag == -1 and line.strip().startswith ('Bathrooms (#):'):
+        bathrooms_flag += 1 # changes from -1 to 0
+    elif bathrooms_flag != -1 and line.strip().startswith ('Bathrooms (#):'):
+        bathrooms_flag = 9
+    if  (bathrooms_flag >= 0 and bathrooms_flag < 9) and line.strip()=='1 bathroom':
+        i+=1
+        line = xyz[i]
+        if aton(line.strip(' )(')) != 0:
+            bathrooms_flag += 1
+        qty_1bathroom = aton(line.strip(' )('))
+    if (bathrooms_flag >= 0 and bathrooms_flag < 9) and line.strip()=='1.5 bathrooms':
+        i+=1
+        line = xyz[i]
+        if aton(line.strip(' )(')) != 0:
+            bathrooms_flag += 1
+        qty_1hbathrooms = aton(line.strip(' )('))
+    if (bathrooms_flag >= 0 and bathrooms_flag < 9) and line.strip()=='2 bathrooms':
+        i+=1
+        line = xyz[i]
+        if aton(line.strip(' )(')) != 0:
+            bathrooms_flag += 1
+        qty_2bathrooms = aton(line.strip(' )('))
+    if (bathrooms_flag >= 0 and bathrooms_flag < 9) and line.strip()=='2.5 bathrooms':
+        i+=1
+        line = xyz[i]
+        if aton(line.strip(' )(')) != 0:
+            bathrooms_flag += 1
+        qty_2hbathrooms = aton(line.strip(' )('))
+    if (bathrooms_flag >= 0 and bathrooms_flag < 9) and line.strip()=='3 bathrooms':
+        i+=1
+        line = xyz[i]
+        if aton(line.strip(' )(')) != 0:
+            bathrooms_flag += 1
+        qty_3bathrooms = aton(line.strip(' )('))
+    if petfriendly_flag == -1 and line.strip().startswith ('Pet Friendly:'):
+        petfriendly_flag += 1 # changes from -1 to 0
+    if furnished_flag == -1 and line.strip().startswith ('Furnished:'):
+        furnished_flag += 1 # changes from -1 to 0
+    if forrentby_flag == -1 and line.strip().startswith ('For Rent By:'):
+       forrentby_flag += 1 # changes from -1 to 0
+    if (petfriendly_flag == 0 or furnished_flag == 0) and line.strip().startswith ('Yes'):
+        if petfriendly_flag == 0:
+            i+=1
+            line = xyz[i]
+            #print(aton(line.strip(' )(')))
+            qty_petfriendly_yes = aton(line.strip(' )('))
+        elif furnished_flag == 0:
+            i+=1
+            line = xyz[i]
+            #print(aton(line.strip(' )(')))
+            qty_furnished_yes = aton(line.strip(' )('))
+    if (petfriendly_flag == 0 or furnished_flag == 0) and line.strip().startswith ('No'):
+        if petfriendly_flag == 0:
+            i+=1
+            line = xyz[i]
+            qty_petfriendly_no = aton(line.strip(' )('))
+            petfriendly_flag += 1 # changes from 0 to 1
+        elif furnished_flag == 0:
+            i+=1
+            line = xyz[i]
+            qty_furnished_no = aton(line.strip(' )('))
+            furnished_flag += 1# changes from 0 to 1
+    if forrentby_flag == 0 and line.strip().startswith ('Owner'):
+        if forrentby_flag == 0:
+            i+=1
+            line = xyz[i]
+            qty_forrentby_owner = aton(line.strip(' )('))
+    if  forrentby_flag == 0 and line.strip().startswith ('Professional'):
+        if forrentby_flag == 0:
+            i+=1
+            line = xyz[i]
+            qty_forrentby_professional = aton(line.strip(' )('))
+            forrentby_flag += 1# changes from 0 to 1
+    i += 1
+
+print('Apartments & Condos for Rent', qty_aptsandcondosforrent)
+print('1 Bedroom', qty_1bedroom)
+print('2 Bedroom', qty_2bedroom)
+print('1 Bedroom + Den', qty_1dbedroom)
+print('Bachelor & Studio', qty_bachelor)
+print('3 Bedroom', qty_3bedroom)
+print('4+ Bedroom', qty_4pbedroom)
+print('1 Bathroom', qty_1bathroom)
+print('1.5 Bathrooms', qty_1hbathrooms)
+print('2 Bathrooms', qty_2bathrooms)
+print('2.5 Bathrooms', qty_2hbathrooms)
+print('3 Bathrooms', qty_3bathrooms)
+print('Pet Friendly - Yes',  qty_petfriendly_yes)
+print('Pet Friendly - No', qty_petfriendly_no)
+print('Furnished - Yes', qty_furnished_yes)
+print('Furnished - No', qty_furnished_no)
+print('For rent by - Owner', qty_forrentby_owner)
+print('For rent by - Professional', qty_forrentby_professional)
+
+Dic_Bedrooms = {u'1 Bedroom':qty_1bedroom,
+     u'2 Bedroom':qty_2bedroom, 
+     u'1 Bedroom + Den' : qty_1dbedroom,
+     u'Bachelor and Studio':qty_bachelor, 
+     u'3 Bedroom':qty_3bedroom, 
+     u'4+ Bedroom':qty_4pbedroom}
+print(Dic_Bedrooms)
+
+# Listings by Number of Bedrooms
+# Bar chart
+plt.title('Listings by Number of Bedrooms\n', fontsize=18, va='center')
+plt.yticks(range(len(Dic_Bedrooms)), list(Dic_Bedrooms.keys()))
+plt.barh(range(len(Dic_Bedrooms)), list(Dic_Bedrooms.values()), align='center')
+for a,b in zip(range(len(Dic_Bedrooms)), list(Dic_Bedrooms.values())):
+    plt.text(b, a, str(b))
+# Pie chart
+
+fig1, ax1 = plt.subplots()
+ax1.pie(list(Dic_Bedrooms.values()), labels=list(Dic_Bedrooms.keys()), autopct='%1.1f%%',
+        shadow=True, startangle=90)
+
+# Equal aspect ratio ensures that pie is drawn as a circle
+ax1.axis('equal')  
+plt.tight_layout()
+    
+plt.show()
+
+# Listings by Number of Bathrooms
+Dic_Bathrooms = {
+     u'1 Bathroom':qty_1bathroom, 
+     u'1.5 Bathrooms' : qty_1hbathrooms,
+     u'2 Bathrooms':qty_2bathrooms, 
+     u'2.5 Bathrooms':qty_2hbathrooms, 
+     u'3 Bathrooms':qty_3bathrooms}
+print(Dic_Bathrooms)
+
+plt.title('Listings by Number of Bathrooms\n', fontsize=18, va='center')
+plt.barh(range(len(Dic_Bathrooms)), list(Dic_Bathrooms.values()), align='center')
+plt.yticks(range(len(Dic_Bathrooms)), list(Dic_Bathrooms.keys()))
+for a,b in zip(range(len(Dic_Bathrooms)), Dic_Bedrooms.values()):
+    plt.text(b, a, str(b))
+
+# Pie chart
+
+fig1, ax1 = plt.subplots()
+ax1.pie(list(Dic_Bathrooms.values()), labels=list(Dic_Bathrooms.keys()), autopct='%1.1f%%',
+        shadow=True, startangle=90)
+
+# Equal aspect ratio ensures that pie is drawn as a circle
+ax1.axis('equal')  
+plt.tight_layout()
+plt.show()
+
+# Listings by Pet Friendly: Yes/No
+Dic_petfriendly = {
+     u'Pet Friendly - Yes':qty_petfriendly_yes, 
+     u'Pet Friendly - No' : qty_petfriendly_no}
+print(Dic_petfriendly)
+
+# Bar chart
+plt.title('Listings by Pet Friendly: Yes/No \n', fontsize=18, va='center')
+plt.barh(range(len(Dic_petfriendly)), list(Dic_petfriendly.values()), align='center')
+plt.yticks(range(len(Dic_petfriendly)), list(Dic_petfriendly.keys()))
+for a,b in zip(range(len(Dic_petfriendly)), Dic_petfriendly.values()):
+    plt.text(b, a, str(b))    
+plt.show()
+
+# Pie chart
+
+fig1, ax1 = plt.subplots()
+ax1.pie(list(Dic_petfriendly.values()), labels=list(Dic_petfriendly.keys()), autopct='%1.1f%%',
+        shadow=True, startangle=90)
+
+# Equal aspect ratio ensures that pie is drawn as a circle
+ax1.axis('equal')  
+plt.tight_layout()
+plt.show()
+
+# Listings by Furnished: Yes/No
+
+Dic_furnished = {
+     u'Furnished - Yes':qty_furnished_yes, 
+     u'Furnished - No' : qty_furnished_no}
+print(Dic_furnished)
+
+# Bar chart
+plt.title('Listings by Furnished: Yes/No \n', fontsize=18, va='center')
+plt.barh(range(len(Dic_furnished)), list(Dic_furnished.values()), align='center')
+plt.yticks(range(len(Dic_furnished)), list(Dic_furnished.keys()))
+for a,b in zip(range(len(Dic_furnished)), Dic_furnished.values()):
+    plt.text(b, a, str(b)) 
+# Pie chart
+
+fig1, ax1 = plt.subplots()
+ax1.pie(list(Dic_furnished.values()), labels=list(Dic_furnished.keys()), autopct='%1.1f%%',
+        shadow=True, startangle=90)
+
+# Equal aspect ratio ensures that pie is drawn as a circle
+ax1.axis('equal')  
+plt.tight_layout()
+plt.show()
+
+# Listings for rent by Owner/Professional
+
+Dic_forrentby = {
+     u'For rent by - Owner':qty_forrentby_owner, 
+     u'For rent by - Professional' : qty_forrentby_professional}
+print(Dic_forrentby)
+
+# Bar chart
+plt.barh(range(len(Dic_forrentby)), list(Dic_forrentby.values()), align='center')
+plt.yticks(range(len(Dic_forrentby)), list(Dic_forrentby.keys()))
+for a,b in zip(range(len(Dic_forrentby)), Dic_forrentby.values()):
+    plt.text(b, a, str(b)) 
+
+# Pie chart
+
+fig1, ax1 = plt.subplots()
+ax1.pie(list(Dic_forrentby.values()), labels=list(Dic_forrentby.keys()), autopct='%1.1f%%',
+        shadow=True, startangle=90)
+
+# Equal aspect ratio ensures that pie is drawn as a circle
+ax1.axis('equal')  
+plt.tight_layout()
+plt.show()
+
